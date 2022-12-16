@@ -10,10 +10,14 @@ parser.add_argument('dcm', help='Path to the DICOM dir - effectively it is the n
 parser.add_argument('id', help='Participant ID to be used')
 parser.add_argument('out', help='Path to the output folder, where the anonymized DICOM files will be stored')
 parser.add_argument('-ext', '--ext', help='Extension of the DICOM files. Default is .IMA', default='.IMA')
+parser.add_argument('-t', '--tags', help='DICOM tags to be anonymized. Default is PatientID, PatientName, and PatientBirthDate. Add more here if you want to overwrite more.', nargs='+', default=None)
 p = parser.parse_args()
 
 # DICOM elements to be anonymized - overwritten with ''
 elements = ['PatientName','PatientBirthDate']
+
+if p.tags is not None:
+    elements += p.tags
 
 # TODO - check if the folder with DICOM files exists
 
