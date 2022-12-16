@@ -66,6 +66,11 @@ class dcmanon:
                 self.id = s
                 self.process()
 
+    def loadmapping(self):
+        # Load mapping file
+        import pandas as pd
+        pass
+
     def process(self):
         # Process subject
 
