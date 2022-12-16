@@ -126,3 +126,4 @@ class dcmanon:
                         ds.save_as(join(self.out, self.id, d, fname))
 
 
+dcmanon(p.dcm, p.out, p.ext, p.tags, p.mapping, p.name, p.id, p.dcm_dirs_as_ids)
