@@ -1,7 +1,8 @@
 import argparse 
 
-parser = argparse.ArgumentParser(description='Anonymize DICOM files by overwriting potentially identifying information. ')
-parser.add_argument('dcm', help='Path to the DICOM dir - effectively it is the name of the folder with DICOM files')
+parser = argparse.ArgumentParser(description='Anonymize DICOM files by overwriting potentially identifying information.')
+parser.add_argument('dcm', help='Path to the DICOM directory')
+parser.add_argument('name', help='Participant name to be used - must be dirname in dcm folder')
 parser.add_argument('id', help='Participant ID to be used')
 parser.add_argument('out', help='Path to the output folder, where the anonymized DICOM files will be stored')
 parser.add_argument('-ext', '--ext', help='Extension of the DICOM files. Default is .IMA', default='.IMA')
@@ -10,7 +11,7 @@ p = parser.parse_args()
 
 class dcmanon:
     
-    def __init__(self, dcm, id, out, ext, tags):
+    def __init__(self, dcm, name, id, out, ext, tags, mapping):
 
         from pydicom import dcmread
         from os.path import join, exists
@@ -19,19 +20,29 @@ class dcmanon:
         from tqdm import tqdm
         
         self.dcm = dcm
+        self.name = name
         self.id = id
         self.out = out
         self.ext = ext
         self.tags = tags
+        self.mapping = mapping
 
         # DICOM elements to be anonymized - overwritten with ''
         self.elements = ['PatientName','PatientBirthDate']
 
+        # Add elements to be anonymized if provided
         if self.tags is not None:
             self.elements += self.tags
 
+        # Check if the input folder exists
         if not exists(self.dcm):
             raise Exception(f'Folder {self.dcm} does not exist')
+
+        # Process subject folder
+
+        # Check if the subject folder exists
+        if not exists(join(self.dcm, self.name)):
+            raise Exception(f'Folder {self.name} does not exist')
 
         # create folder for the anonymized data
         if not exists(self.out):
@@ -41,12 +52,13 @@ class dcmanon:
         if not exists(join(self.out, self.id)):
             mkdir(join(self.out, self.id))
 
-        for root, dirs, __ in walk(self.dcm):
+        for root, dirs, __ in walk(join(self.dcm, self.name)):
 
             for d in dirs:
 
                 files = [f for f in ls(join(root, d)) if f.endswith(self.ext)]
-                # print(f'sub-{sub}: {d} has {len(files)} {ext} file(s)')
+                
+                # Only process folders with any DICOM files of specified extension
                 if len(files) > 0:
                     
                     # If we have DICOM files, create a folder for the session in out folder
@@ -54,8 +66,11 @@ class dcmanon:
                         mkdir(join(self.out, self.id, d))
                     
                     # Loop through the files and anonymize them
+                    # Set progress bar
                     pbar = tqdm(files)
+
                     for f in pbar:
+                        
                         pbar.set_description(f'Anonymising sub-{self.id} {d}')
                         f_in_path = join(root, d, f)
                         
@@ -63,7 +78,7 @@ class dcmanon:
                         ds = dcmread(f_in_path)
                         
                         # anonymize the data
-                        for b in elements:
+                        for b in self.elements:
                             ds.data_element(b).value = ''
                         
                         # Replace the subject ID
