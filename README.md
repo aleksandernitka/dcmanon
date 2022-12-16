@@ -1,0 +1,2 @@
+# dcmanon
+Dicom mass anonymisation
