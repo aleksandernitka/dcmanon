@@ -2,30 +2,32 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Anonymize DICOM files by overwriting potentially identifying information.')
 parser.add_argument('dcm', help='Path to the DICOM directory')
-parser.add_argument('name', help='Participant name to be used - must be dirname in dcm folder')
-parser.add_argument('id', help='Participant ID to be used')
 parser.add_argument('out', help='Path to the output folder, where the anonymized DICOM files will be stored')
 parser.add_argument('-ext', '--ext', help='Extension of the DICOM files. Default is .IMA', default='.IMA')
 parser.add_argument('-t', '--tags', help='DICOM tags to be anonymized. Default is PatientID, PatientName, and PatientBirthDate. Add more here if you want to overwrite more.', nargs='+', default=None)
+parser.add_argument('-m', '--mapping', help='Path to the mapping file. Default is None', default=None)
+parser.add_argument('-id', '--id', help='Participant ID to be used', default=None)
+parser.add_argument('-name', '--name', help='Participant name to be used - must be dirname in dcm folder', default=None)
+parser.add_argument('-d', '--dcm_dirs_as_ids', help='Use the DICOM directory names as the participant IDs. Default is False', action='store_true', default=False)
 p = parser.parse_args()
 
 class dcmanon:
     
-    def __init__(self, dcm, name, id, out, ext, tags, mapping):
+    def __init__(self, dcm, out, ext, tags=None, mapping=None, name=None, id=None, dcm_dirs_as_ids=False):
 
-        from pydicom import dcmread
         from os.path import join, exists
-        from os import walk, mkdir
         from os import listdir as ls
         from tqdm import tqdm
         
         self.dcm = dcm
-        self.name = name
-        self.id = id
         self.out = out
         self.ext = ext
         self.tags = tags
         self.mapping = mapping
+        self.name = name
+        self.id = id
+        self.subjects = None
+        self.dcm_dirs_as_ids = dcm_dirs_as_ids
 
         # DICOM elements to be anonymized - overwritten with ''
         self.elements = ['PatientName','PatientBirthDate']
@@ -38,7 +40,39 @@ class dcmanon:
         if not exists(self.dcm):
             raise Exception(f'Folder {self.dcm} does not exist')
 
-        # Process subject folder
+        # Check if the output folder exists
+        if not exists(self.out):
+            raise Exception(f'Folder {self.out} does not exist')
+
+        # If the mapping file is provided, read it
+        if self.mapping is not None:
+            #TODO
+            pass
+
+        if self.dcm_dirs_as_ids:
+            # Get the list of subject folders
+            self.subjects = [f for f in ls(self.dcm) if exists(join(self.dcm, f))]
+            print(f'Found {len(self.subjects)} subjects in {self.dcm}')
+
+            print('Anonymising DICOM files...')
+            print(f'Anonymised data will be save in the {self.out}')
+
+            # Set progress bar
+            pbar = tqdm(self.subjects)
+
+            for s in pbar:
+                pbar.set_description(f'Anonymising sub-{s}')
+                self.name = s
+                self.id = s
+                self.process()
+
+    def process(self):
+        # Process subject
+
+        from pydicom import dcmread
+        from os.path import join, exists
+        from os import walk, mkdir
+        from os import listdir as ls
 
         # Check if the subject folder exists
         if not exists(join(self.dcm, self.name)):
@@ -66,12 +100,8 @@ class dcmanon:
                         mkdir(join(self.out, self.id, d))
                     
                     # Loop through the files and anonymize them
-                    # Set progress bar
-                    pbar = tqdm(files)
-
-                    for f in pbar:
+                    for f in files:
                         
-                        pbar.set_description(f'Anonymising sub-{self.id} {d}')
                         f_in_path = join(root, d, f)
                         
                         # Load the data to memory
@@ -85,7 +115,7 @@ class dcmanon:
                         ds.data_element('PatientID').value = self.id
 
                         # need to replace the subs name in the file name
-                        fname = f.replace(str(self.dcm).split('/')[-1], str(self.id))
+                        fname = f.replace(f.split('.')[0], str(self.id))
                         
                         # save the file
                         ds.save_as(join(self.out, self.id, d, fname))
